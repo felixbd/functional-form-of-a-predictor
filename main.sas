@@ -233,10 +233,11 @@ run;
 * For SCalc, clinically and empirically reasonable knots are: 8 10 12 14;
 proc phreg data=Myeloma;
    effect SCalc_spline = spline(
-      SCalc / naturalcubic details knotmethod=list(8 10 12 14)
-   );
+      SCalc / naturalcubic); * details knotmethod=list(8 10 12 14) );
 
    model Time*VStatus(0) = SCalc_spline;
+   
+   hazardratio SCalc / at(SCalc=0 2 5 7 10 15 18);
 
    baseline out=pred_spline
       covariates=SCalc_grid
@@ -255,12 +256,18 @@ data SCalc_grid;
     end;
 run;
 
+
+data Myeloma_jit;
+    set Myeloma;
+    SCalc_jit = SCalc + rannor(12345) * 1e-6;
+run;
+
 proc phreg data=Myeloma_jit;
     effect SCalc_spline = spline(
-        SCalc_jit / naturalcubic knotmethod=percentiles(5)
-    );
+        SCalc_jit / naturalcubic); * knotmethod=percentiles(5));
 
     model Time*VStatus(0) = SCalc_spline;
+    
 
     baseline out=pred_spline
         covariates=SCalc_grid
@@ -299,6 +306,7 @@ run;
 */
 
 
+/*
 
 proc sql;
     create table hr_table as
@@ -306,6 +314,19 @@ proc sql;
            exp(xb - (select xb from pred_spline where SCalc = 10)) as HR
     from pred_spline
     order by SCalc;
+quit;
+
+*/
+
+
+proc sql;
+    create table hr_table as
+    select a.SCalc,
+           exp(a.xb - b.xb) as HR
+    from pred_spline as a
+         inner join pred_spline as b
+             on b.SCalc = 10
+    order by a.SCalc;
 quit;
 
 
